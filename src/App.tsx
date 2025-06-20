@@ -6,17 +6,13 @@ import { Movie } from './types/Movie';
 
 export const App = () => {
   const [movies, setMovies] = useState<Movie[]>([]);
-  const [query, setQuery] = useState('');
-  const [error, setError] = useState(false);
 
-  const handleAddMovie = (movie: Movie) => {
-    setMovies(prev => {
-      if (prev.some(m => m.imdbId === movie.imdbId)) {
-        return prev;
-      }
+  const addMovie = (movie: Movie) => {
+    const isDouble = movies.find(m => m.imdbId === movie.imdbId);
 
-      return [...prev, movie];
-    });
+    if (!isDouble) {
+      setMovies([...movies, movie]);
+    }
   };
 
   return (
@@ -26,13 +22,7 @@ export const App = () => {
       </div>
 
       <div className="sidebar">
-        <FindMovie
-          query={query}
-          setQuery={setQuery}
-          setError={setError}
-          error={error}
-          onAddMovie={handleAddMovie}
-        />
+        <FindMovie onAdd={addMovie} />
       </div>
     </div>
   );
