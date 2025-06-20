@@ -4,84 +4,57 @@ import { Movie } from '../../types/Movie';
 import { getMovie } from '../../api';
 import { MovieData } from '../../types/MovieData';
 import { MovieCard } from '../MovieCard';
+import cn from 'classnames';
 
 type Props = {
-  query: string;
-  setQuery: (query: string) => void;
-  setError: (error: boolean) => void;
-  error: boolean;
-  onAddMovie: (movie: Movie) => void;
+  onAdd: (movie: Movie) => void;
 };
 
-export const FindMovie: React.FC<Props> = ({
-  query,
-  setQuery,
-  setError,
-  error,
-  onAddMovie,
-}) => {
-  const [loading, setLoading] = useState(false);
-  const [preview, setPreview] = useState<Movie | null>(null);
+export const FindMovie: React.FC<Props> = ({ onAdd }) => {
+  const [query, setQuery] = useState('');
+  const [isFindError, setIsFindError] = useState(false);
+  const [movie, setMovie] = useState<Movie | null>(null);
+  const [touched, setTouched] = useState(false);
+  const [loader, setLoader] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const changeQuery = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsFindError(false);
     setQuery(e.target.value);
-    setError(false);
-    setPreview(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleFind = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     e.preventDefault();
-    const trimmed = query.trim();
 
-    if (!trimmed) {
-      return;
-    }
+    let movieRecieved: Movie | null = null;
 
-    setLoading(true);
-    setError(false);
-    setPreview(null);
+    setLoader(true);
 
-    try {
-      const data = await getMovie(query);
+    getMovie(query)
+      .then(result => {
+        if ((result as MovieData).Title !== undefined) {
+          movieRecieved = {
+            title: (result as MovieData).Title,
+            description: (result as MovieData).Plot,
+            imgUrl:
+              ((result as MovieData).Poster !== 'N/A' &&
+                (result as MovieData).Poster) ||
+              'https://via.placeholder.com/360x270.png?text=no%20preview',
+            imdbId: (result as MovieData).imdbID,
+            imdbUrl: `https://www.imdb.com/title/${(result as MovieData).imdbID}`,
+          };
+          setIsFindError(false);
+        } else {
+          setIsFindError(true);
+        }
 
-      if (data.Response === 'False') {
-        setError(true);
-        setPreview(null);
-      } else {
-        const movieData = data as MovieData;
-        const movie: Movie = {
-          title: movieData.Title,
-          description: movieData.Plot || '',
-          imgUrl:
-            movieData.Poster !== 'N/A'
-              ? movieData.Poster
-              : 'https://via.placeholder.com/360x270.png?text=no%20preview',
-          imdbUrl: `https://www.imdb.com/title/${movieData.imdbID}`,
-          imdbId: movieData.imdbID,
-        };
-
-        setPreview(movie);
-      }
-    } catch {
-      setError(true);
-      setPreview(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAdd = () => {
-    if (preview) {
-      onAddMovie(preview);
-      setQuery('');
-      setPreview(null);
-      setError(false);
-    }
+        setMovie(movieRecieved);
+      })
+      .finally(() => setLoader(false));
   };
 
   return (
     <>
-      <form className="find-movie" onSubmit={handleSubmit}>
+      <form className="find-movie">
         <div className="field">
           <label className="label" htmlFor="movie-title">
             Movie title
@@ -89,17 +62,18 @@ export const FindMovie: React.FC<Props> = ({
 
           <div className="control">
             <input
-              value={query}
-              onChange={handleChange}
               data-cy="titleField"
               type="text"
               id="movie-title"
               placeholder="Enter a title to search"
-              className={`input ${error ? 'is-danger' : ''}`}
+              className={`input ${touched && query.length === 0 ? 'is-danger' : ''}`}
+              value={query}
+              onChange={changeQuery}
+              onBlur={() => setTouched(true)}
             />
           </div>
 
-          {error && (
+          {isFindError && (
             <p className="help is-danger" data-cy="errorMessage">
               Can&apos;t find a movie with such a title
             </p>
@@ -111,32 +85,40 @@ export const FindMovie: React.FC<Props> = ({
             <button
               data-cy="searchButton"
               type="submit"
-              className={`button is-light ${loading ? 'is-loading' : ''}`}
-              disabled={query ? false : true}
+              className={cn('button', {
+                'is-light': query.length > 0,
+                'is-loading': loader,
+              })}
+              onClick={handleFind}
+              disabled={query.length > 0 ? false : true}
             >
               Find a movie
             </button>
           </div>
 
-          {preview && (
-            <div className="control">
+          <div className="control">
+            {movie && (
               <button
-                onClick={handleAdd}
                 data-cy="addButton"
                 type="button"
                 className="button is-primary"
+                onClick={() => {
+                  setMovie(null);
+                  onAdd(movie);
+                  setQuery('');
+                }}
               >
                 Add to the list
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </form>
 
-      {preview && (
+      {movie !== null && (
         <div className="container" data-cy="previewContainer">
           <h2 className="title">Preview</h2>
-          <MovieCard movie={preview} />
+          <MovieCard movie={movie} />
         </div>
       )}
     </>
